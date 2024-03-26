@@ -1,3 +1,4 @@
+use regex::Regex;
 use reqwest::Result;
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -13,6 +14,11 @@ pub fn read_env_var_or_panic(variable: &str) -> String {
         Ok(v) => v,
         Err(_) => panic!("The {} variable is not set", variable),
     }
+}
+
+pub fn parse_drv_hash<'a>(drv_path: &'a str) -> &'a str {
+    let re = Regex::new(r"\/nix\/store\/(.*)\.drv").unwrap();
+    re.captures(drv_path).unwrap().get(1).unwrap().as_str()
 }
 
 pub async fn post(collection_server: &str, token: &str, drv_ident: &str, output_attestations: &Vec<OutputAttestation<'_>>) -> Result<()> {

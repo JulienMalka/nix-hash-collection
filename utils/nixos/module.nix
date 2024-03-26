@@ -2,7 +2,7 @@ queued-build-hook-module:
 { config, lib, pkgs, ... }:
 let
   cfg = config.services.hash-collection;
-  build-hook = pkgs.callPackage ../. { };
+  utils = pkgs.callPackage ../. { };
 in
 with lib;
 {
@@ -58,14 +58,32 @@ with lib;
     queued-build-hook = {
       inherit (cfg) retries concurrency retryInterval;
       enable = true;
-      postBuildScript = "${build-hook}/bin/build-hook";
+      postBuildScript = "${utils}/bin/build-hook";
       credentials = {
         HASH_COLLECTION_TOKEN = toString cfg.tokenFile;
       };
 
     };
 
-    systemd.services.async-nix-post-build-hook.serviceConfig.Environment = [ "HASH_COLLECTION_SERVER=${cfg.collection-url}" ];
+    systemd.services.async-nix-post-build-hook.serviceConfig.Environment = [
+      "HASH_COLLECTION_SERVER=${cfg.collection-url}"
+    ];
+
+    nix.settings = {
+      diff-hook = pkgs.writeScript "hash-collection-diff-hook" ''
+        #!/bin/sh
+        export OUT_PATH=$1
+        export REBUILD_PATH=$2
+        export DRV_PATH=$3
+
+        export HASH_COLLECTION_SERVER=${cfg.collection-url}
+        export HASH_COLLECTION_TOKEN=$(cat ${toString cfg.tokenFile})
+        echo HASH_COLLECTION_TOKEN=$HASH_COLLECTION_TOKEN
+
+        exec ${utils}/bin/diff-hook
+      '';
+      run-diff-hook = true;
+    };
 
   };
 
